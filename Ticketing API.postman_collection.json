@@ -30,7 +30,13 @@
 					"name": "Create Venue",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "X-Idempotency-Key",
+								"value": "{{$guid}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\": \"Stadium Bukit Jalil\",\n    \"address\": \"Kuala Lumpur\",\n    \"capacity\": 80000\n}",
@@ -78,7 +84,13 @@
 					"name": "Create Event",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "X-Idempotency-Key",
+								"value": "{{$guid}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\": \"Coldplay World Tour\",\n    \"description\": \"Music of the Spheres\",\n    \"startTime\": \"2026-11-22T20:00:00Z\",\n    \"venueId\": \"uuid-here\"\n}",
@@ -126,7 +138,13 @@
 					"name": "Create Ticket Type",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "X-Idempotency-Key",
+								"value": "{{$guid}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"type\": \"VIP\",\n    \"price\": 599.99,\n    \"initialQuantity\": 100,\n    \"eventId\": \"uuid-here\"\n}",
@@ -154,13 +172,19 @@
 			"name": "Orders",
 			"item": [
 				{
-					"name": "Purchase Tickets",
+					"name": "Purchase Tickets (Sync)",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "X-Idempotency-Key",
+								"value": "{{$guid}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"ticketId\": \"uuid-here\",\n    \"quantity\": 2,\n    \"customerEmail\": \"customer@example.com\",\n    \"seatIds\": []\n}",
+							"raw": "{\n    \"ticketId\": \"uuid-here\",\n    \"quantity\": 2,\n    \"customerEmail\": \"customer@example.com\",\n    \"seatIds\": [],\n    \"botToken\": \"\" \n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -174,6 +198,39 @@
 							],
 							"path": [
 								"orders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Purchase Tickets (Async - High Load)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Idempotency-Key",
+								"value": "{{$guid}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"ticketId\": \"uuid-here\",\n    \"quantity\": 2,\n    \"customerEmail\": \"customer@example.com\",\n    \"seatIds\": [],\n    \"botToken\": \"\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/orders/async-purchase",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders",
+								"async-purchase"
 							]
 						}
 					},
@@ -221,32 +278,6 @@
 									"key": "venueId",
 									"value": "uuid-here"
 								}
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Create Seat",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"row\": \"A\",\n    \"number\": \"1\",\n    \"venueId\": \"uuid-here\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/seats",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"seats"
 							]
 						}
 					},
