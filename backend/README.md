@@ -1,83 +1,72 @@
-# Ticketing System Backend
+# AirAsia Ticketing System Backend
 
-A robust, high-performance backend for managing events, venues, tickets, and orders, built with NestJS, TypeScript, and Prisma. This implementation is designed for high-concurrency "viral" ticketing events.
+A high-concurrency, fault-tolerant ticketing system built with NestJS, Prisma, PostgreSQL, and Redis. This system is designed to handle extreme traffic spikes (e.g., concert ticket launches) while ensuring data consistency and protecting against scalpers.
 
-## 🚀 Advanced Features
-- **ACID Atomic Transactions:** Optimized order processing using database-level atomic updates to prevent race conditions and overselling without pessimistic locking.
-- **Asynchronous Purchase Queue:** Redis-backed queuing (BullMQ) to decouple high-load purchase requests from the HTTP lifecycle, preventing server timeouts and DB spikes.
-- **Virtual Waiting Room:** Custom `WaitingRoomGuard` that controls server ingress by limiting concurrent active users during traffic surges.
-- **Global Caching:** Integrated `CacheModule` for ultra-fast read operations on static data like Venues and Events.
-- **Rate Limiting:** Global request throttling to protect against brute-force and DDoS-like surges.
-- **Comprehensive API Docs:** Interactive Swagger/OpenAPI UI for all endpoints.
+## 🚀 Key Features
+
+### 1. High-Concurrency Performance
+- **Redis-Backed Inventory:** Hot-key protection using atomic Redis counters to reject over-capacity requests before they hit the database.
+- **Asynchronous Purchase Flow:** Support for high-load purchasing via BullMQ to decouple request reception from order processing.
+- **Idempotency Engine:** `X-Idempotency-Key` support to prevent "double-click" or retry-based duplicate orders.
+
+### 2. Advanced Seating Logic
+- **Contiguous Allocation:** Automatically finds the best seats for groups to stay together.
+- **Anti-Orphan Protection:** Prevents single empty seats from being left between bookings to maximize venue occupancy.
+- **Social Distancing Ready:** Configurable gaps between bookings to support health and safety protocols.
+
+### 3. Security & Anti-Bot
+- **JWT Authorization:** Stateless microservice-first authentication.
+- **AntiBotGuard:** HoneyPot traps and strict per-IP rate limiting to block sophisticated scalper bots.
+- **Smart Wait Mechanism:** Server-side enforcement of sale start times with a 2-second hold to handle client-side clock skew gracefully.
+
+### 4. Data Integrity & Reliability
+- **ACID Transactions:** Full PostgreSQL transactions ensuring no ticket is ever double-sold.
+- **Automatic Expiration:** PENDING orders are automatically expired and inventory is restored after 10 minutes.
+- **Reconciliation Service:** Hourly background job to ensure absolute consistency between the DB and Redis cache.
+- **Refund Storm Handling:** Throttled, asynchronous mass-refund processing for cancelled events.
 
 ## 🛠 Tech Stack
-- **Node.js** 22+
-- **NestJS** (Core Framework)
-- **Prisma** (ORM)
-- **PostgreSQL** (Primary Database)
-- **Redis** (Caching, Queuing, and Session Tracking)
-- **BullMQ** (Background Job Processing)
-- **Docker** (Containerization)
+- **Framework:** NestJS 11
+- **ORM:** Prisma 6
+- **Database:** PostgreSQL
+- **Caching & Queuing:** Redis 7 + BullMQ
+- **Validation:** Zod + Class-Validator
+- **Testing:** Jest
 
-## 📦 Getting Started
+## 🚦 Getting Started
 
-### 1. Prerequisites
+### Prerequisites
 - Docker & Docker Compose
-- Node.js 22+
+- Node.js 20+
 
-### 2. Installation
+### Installation
 ```bash
-cd backend
+# 1. Install dependencies
 npm install
-```
 
-### 3. Infrastructure Setup (Local)
-Start the PostgreSQL and Redis containers:
-```bash
+# 2. Start Infrastructure (PostgreSQL & Redis)
 docker-compose up -d
-```
 
-Apply migrations and generate Prisma client:
-```bash
+# 3. Setup Database
 npm run db:migrate
-npm run db:gen
-```
 
-### 4. Running the App
-```bash
-# development
+# 4. Start Development Server
 npm run start:dev
-
-# production
-npm run start:prod
 ```
 
-### 5. API Documentation
-Access the interactive Swagger UI at:
-[http://localhost:3000/api](http://localhost:3000/api)
+## 🧪 Testing
+```bash
+# Run Unit Tests
+npm run test
 
-## 📄 Senior-Level Design Patterns
-
-### High-Concurrency Order Processing
-We use an **Atomic Update** pattern in the `OrdersService`:
-```typescript
-await tx.ticket.update({
-  where: { 
-    id: ticketId,
-    remainingQuantity: { gte: quantity }, // Atomic check at the DB level
-  },
-  data: {
-    remainingQuantity: { decrement: quantity },
-  },
-});
+# Run End-to-End Tests
+npm run test:e2e
 ```
-This ensures that even if 10,000 requests hit the server at the same time, the database only allows the decrement if the stock is actually available at the exact millisecond of the update.
 
-### Distributed Queuing
-For massive bursts (e.g., ticket sales opening), users can use the `POST /orders/async-purchase` endpoint. This returns a `jobId` immediately, placing the user in a **BullMQ** queue for background processing, ensuring the API remains responsive.
-
-### Infrastructure Protection
-The `WaitingRoomGuard` monitors active sessions in Redis. If the server load exceeds safe thresholds, users are automatically served a `503 Service Unavailable` with queue information, protecting the core services from crashing.
+## 📜 API Documentation
+The API includes a Postman collection for easy testing.
+- `Ticketing API.postman_collection.json` located in the root directory.
+- Protected routes require a Bearer Token.
 
 ---
-Developed for the Senior Software Engineer technical assignment.
+Built by **ZenZhiin: Master Agent** for AirAsia.

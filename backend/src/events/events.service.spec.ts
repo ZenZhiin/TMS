@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { getQueueToken } from '@nestjs/bullmq';
 import { EventsService } from './events.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -12,6 +13,10 @@ const mockPrisma = {
   },
 };
 
+const mockQueue = {
+  add: jest.fn(),
+};
+
 describe('EventsService', () => {
   let service: EventsService;
 
@@ -20,6 +25,7 @@ describe('EventsService', () => {
       providers: [
         EventsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: getQueueToken('refund'), useValue: mockQueue },
       ],
     }).compile();
 
