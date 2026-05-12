@@ -4,22 +4,46 @@ import {
   Post,
   Body,
   Param,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/order.dto';
+import { WaitingRoomGuard } from '../common/guards/waiting-room.guard';
 
 @ApiTags('orders')
 @Controller('orders')
+@UseGuards(WaitingRoomGuard)
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    @InjectQueue('purchase') private readonly purchaseQueue: Queue,
+  ) { }
 
   @Post()
-  @ApiOperation({ summary: 'Purchase tickets (Create an order)' })
+  @ApiOperation({ summary: 'Purchase tickets (Synchronous - for normal load)' })
   @ApiResponse({ status: 201, description: 'The order has been successfully created.' })
-  @ApiResponse({ status: 400, description: 'Insufficient ticket quantity or invalid request.' })
   create(@Body() createOrderDto: CreateOrderDto) {
     return this.ordersService.create(createOrderDto);
+  }
+
+  @Post('async-purchase')
+  @ApiOperation({ summary: 'Purchase tickets (Asynchronous - for high load)' })
+  @ApiResponse({ status: 202, description: 'The order has been queued for processing.' })
+  async createAsync(@Body() createOrderDto: CreateOrderDto) {
+    const job = await this.purchaseQueue.add('purchase-job', createOrderDto, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+    });
+    return {
+      message: 'Your order is being processed. Please check back shortly.',
+      jobId: job.id,
+    };
   }
 
   @Get()

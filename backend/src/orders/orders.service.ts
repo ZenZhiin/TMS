@@ -10,7 +10,7 @@ export class OrdersService {
     const { ticketId, quantity, customerEmail, seatIds } = createOrderDto;
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Get ticket and check availability
+      // 1. Pre-check: Get ticket and check availability
       const ticket = await tx.ticket.findUnique({
         where: { id: ticketId },
         include: { event: true },
@@ -38,15 +38,12 @@ export class OrdersService {
           where: {
             id: { in: seatIds },
             venueId: ticket.event.venueId,
+            status: 'AVAILABLE', // Ensure we only find available seats
           },
         });
 
         if (seats.length !== seatIds.length) {
-          throw new BadRequestException('One or more selected seats do not exist in this venue');
-        }
-
-        if (seats.some((s) => s.status !== 'AVAILABLE')) {
-          throw new BadRequestException('One or more selected seats are not available');
+          throw new BadRequestException('One or more selected seats are unavailable or do not exist');
         }
 
         // Mark seats as sold
@@ -56,15 +53,27 @@ export class OrdersService {
         });
       }
 
-      // 3. Update ticket remaining quantity
-      const updatedTicket = await tx.ticket.update({
-        where: { id: ticketId },
-        data: {
-          remainingQuantity: {
-            decrement: quantity,
+      // 3. ATOMIC UPDATE: Decrease quantity only if still sufficient
+      // This is critical for ACID compliance in high-concurrency environments
+      let updatedTicket;
+      try {
+        updatedTicket = await tx.ticket.update({
+          where: { 
+            id: ticketId,
+            remainingQuantity: { gte: quantity }, // Atomic check at the DB level
           },
-        },
-      });
+          data: {
+            remainingQuantity: {
+              decrement: quantity,
+            },
+          },
+        });
+      } catch (error) {
+        // If the 'where' condition fails (remainingQuantity < quantity), Prisma throws an error
+        throw new BadRequestException(
+          'Tickets were sold out by another user. Please try again.',
+        );
+      }
 
       // 4. Create the order
       const totalPrice = Number(ticket.price) * quantity;

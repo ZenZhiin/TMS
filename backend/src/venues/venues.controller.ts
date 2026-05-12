@@ -6,13 +6,16 @@ import {
   Patch,
   Param,
   Delete,
+  UseInterceptors,
 } from '@nestjs/common';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { VenuesService } from './venues.service';
 import { CreateVenueDto, UpdateVenueDto } from './dto/venue.dto';
 
 @ApiTags('venues')
 @Controller('venues')
+@UseInterceptors(CacheInterceptor)
 export class VenuesController {
   constructor(private readonly venuesService: VenuesService) {}
 

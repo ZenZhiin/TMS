@@ -1,24 +1,23 @@
 # Ticketing System Backend
 
-A robust, scalable backend for managing events, venues, tickets, and orders, built with NestJS, TypeScript, and Prisma.
+A robust, high-performance backend for managing events, venues, tickets, and orders, built with NestJS, TypeScript, and Prisma. This implementation is designed for high-concurrency "viral" ticketing events.
 
-## 🚀 Features
-- **Venue Management:** CRUD operations for event locations.
-- **Event Management:** Create and manage events linked to venues.
-- **Ticket Definition:** Flexible ticket types (VIP, General) with stock tracking.
-- **Order Processing:** Atomic ticket purchasing with transaction safety and concurrency handling.
-- **Reserved Seating (Bonus):** Seat-specific availability and reservations.
-- **API Documentation:** Interactive Swagger/OpenAPI UI.
-- **Containerization:** Ready for Docker deployment.
+## 🚀 Advanced Features
+- **ACID Atomic Transactions:** Optimized order processing using database-level atomic updates to prevent race conditions and overselling without pessimistic locking.
+- **Asynchronous Purchase Queue:** Redis-backed queuing (BullMQ) to decouple high-load purchase requests from the HTTP lifecycle, preventing server timeouts and DB spikes.
+- **Virtual Waiting Room:** Custom `WaitingRoomGuard` that controls server ingress by limiting concurrent active users during traffic surges.
+- **Global Caching:** Integrated `CacheModule` for ultra-fast read operations on static data like Venues and Events.
+- **Rate Limiting:** Global request throttling to protect against brute-force and DDoS-like surges.
+- **Comprehensive API Docs:** Interactive Swagger/OpenAPI UI for all endpoints.
 
 ## 🛠 Tech Stack
 - **Node.js** 22+
 - **NestJS** (Core Framework)
-- **TypeScript**
 - **Prisma** (ORM)
-- **PostgreSQL** (Database)
+- **PostgreSQL** (Primary Database)
+- **Redis** (Caching, Queuing, and Session Tracking)
+- **BullMQ** (Background Job Processing)
 - **Docker** (Containerization)
-- **Jest** (Testing)
 
 ## 📦 Getting Started
 
@@ -32,73 +31,53 @@ cd backend
 npm install
 ```
 
-### 3. Database Setup (Local)
-Start the PostgreSQL container:
+### 3. Infrastructure Setup (Local)
+Start the PostgreSQL and Redis containers:
 ```bash
 docker-compose up -d
 ```
 
-Apply migrations:
+Apply migrations and generate Prisma client:
 ```bash
-npx prisma migrate dev --name init
+npm run db:migrate
+npm run db:gen
 ```
 
 ### 4. Running the App
 ```bash
 # development
-npm run start
-
-# watch mode
 npm run start:dev
 
-# production mode
+# production
 npm run start:prod
 ```
 
 ### 5. API Documentation
-Once the app is running, visit:
-[http://localhost:3000/api](http://localhost:3000/api) to view the Swagger UI.
+Access the interactive Swagger UI at:
+[http://localhost:3000/api](http://localhost:3000/api)
 
-## 🧪 Testing
-```bash
-# unit tests
-npm run test
+## 📄 Senior-Level Design Patterns
 
-# e2e tests
-npm run test:e2e
-
-# test coverage
-npm run test:cov
+### High-Concurrency Order Processing
+We use an **Atomic Update** pattern in the `OrdersService`:
+```typescript
+await tx.ticket.update({
+  where: { 
+    id: ticketId,
+    remainingQuantity: { gte: quantity }, // Atomic check at the DB level
+  },
+  data: {
+    remainingQuantity: { decrement: quantity },
+  },
+});
 ```
+This ensures that even if 10,000 requests hit the server at the same time, the database only allows the decrement if the stock is actually available at the exact millisecond of the update.
 
-## 📄 API Examples
+### Distributed Queuing
+For massive bursts (e.g., ticket sales opening), users can use the `POST /orders/async-purchase` endpoint. This returns a `jobId` immediately, placing the user in a **BullMQ** queue for background processing, ensuring the API remains responsive.
 
-### Create a Venue
-```bash
-curl -X POST http://localhost:3000/venues \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Stadium Bukit Jalil", "address": "KL", "capacity": 50000}'
-```
-
-### Purchase Tickets
-```bash
-curl -X POST http://localhost:3000/orders \
-  -H "Content-Type: application/json" \
-  -d '{"ticketId": "uuid-here", "quantity": 2, "customerEmail": "user@example.com"}'
-```
-
-## 🐳 Docker Deployment
-Build and run the production image:
-```bash
-docker build -t ticketing-backend .
-docker run -p 3000:3000 ticketing-backend
-```
-
-## 🛡 Security & Design
-- **Validation:** Strict input validation using `class-validator`.
-- **Error Handling:** Standardized JSON error responses via global exception filter.
-- **Atomicity:** All order operations are wrapped in Prisma transactions.
-- **Scale:** Modular architecture following the "500-Line Rule" for maintainability.
+### Infrastructure Protection
+The `WaitingRoomGuard` monitors active sessions in Redis. If the server load exceeds safe thresholds, users are automatically served a `503 Service Unavailable` with queue information, protecting the core services from crashing.
 
 ---
-Developed as part of a Senior Software Engineer technical assignment.
+Developed for the Senior Software Engineer technical assignment.

@@ -6,13 +6,16 @@ import {
   Patch,
   Param,
   Delete,
+  UseInterceptors,
 } from '@nestjs/common';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { EventsService } from './events.service';
 import { CreateEventDto, UpdateEventDto } from './dto/event.dto';
 
 @ApiTags('events')
 @Controller('events')
+@UseInterceptors(CacheInterceptor)
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
