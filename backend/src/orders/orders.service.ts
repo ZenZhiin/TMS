@@ -115,7 +115,7 @@ export class OrdersService {
       // 4. Mark Seats as RESERVED (pending payment)
       await tx.seat.updateMany({
         where: { id: { in: finalizedSeatIds } },
-        data: { 
+        data: {
           status: 'RESERVED',
           orderId: order.id
         },
@@ -166,7 +166,7 @@ export class OrdersService {
       for (let i = 0; i <= rowSeats.length - quantity; i++) {
         const candidateBlock = rowSeats.slice(i, i + quantity);
         let isContiguous = true;
-        
+
         for (let j = 0; j < quantity - 1; j++) {
           const currentNum = parseInt(candidateBlock[j].number);
           const nextNum = parseInt(candidateBlock[j + 1].number);
@@ -185,13 +185,13 @@ export class OrdersService {
           // Check Left Orphan
           if (leftNeighborIdx === 0) {
             // If we are taking seats starting from index 1, index 0 is left alone.
-            continue; 
+            continue;
           }
 
           // Check Right Orphan
           if (rightNeighborIdx === rowSeats.length - 1) {
-             // If we leave exactly one seat at the end of the row
-             continue;
+            // If we leave exactly one seat at the end of the row
+            continue;
           }
 
           return candidateBlock.map((s: Seat) => s.id);
