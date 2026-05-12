@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, Inject, ForbiddenException } from '@nestjs/common';
+import { Seat } from '@prisma/client';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -193,13 +194,13 @@ export class OrdersService {
              continue;
           }
 
-          return candidateBlock.map((s) => s.id);
+          return candidateBlock.map((s: Seat) => s.id);
         }
       }
     }
 
     // Fallback: If no contiguous block found, just take any available seats (Fragmented)
-    return availableSeats.slice(0, quantity).map((s) => s.id);
+    return availableSeats.slice(0, quantity).map((s: Seat) => s.id);
   }
 
   async findAll() {
