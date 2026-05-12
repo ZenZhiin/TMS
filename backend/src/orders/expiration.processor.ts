@@ -63,7 +63,7 @@ export class ExpirationProcessor extends WorkerHost {
 
       // 4. Restore Redis Inventory Counter
       const cacheKey = `inventory:ticket:${order.ticketId}`;
-      const cachedStock: number = await this.cacheManager.get(cacheKey);
+      const cachedStock: number | undefined = await this.cacheManager.get(cacheKey);
       if (cachedStock !== undefined && cachedStock !== null) {
         await this.cacheManager.set(cacheKey, cachedStock + order.quantity, 0);
       }

@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import type { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -11,7 +11,7 @@ export class ReconciliationService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-  ) {}
+  ) { }
 
   /**
    * Runs every hour to ensure data consistency between Orders, Tickets, and Redis Cache.
@@ -45,7 +45,7 @@ export class ReconciliationService {
           this.logger.warn(
             `Mismatch found for Ticket ${ticket.id} in DB! Current: ${ticket.remainingQuantity}, Expected: ${expectedRemaining}. Fixing...`,
           );
-          
+
           await this.prisma.ticket.update({
             where: { id: ticket.id },
             data: { remainingQuantity: expectedRemaining },
@@ -54,7 +54,7 @@ export class ReconciliationService {
 
         // 3. Check for Redis Cache Discrepancy
         const cacheKey = `inventory:ticket:${ticket.id}`;
-        const cachedStock: number = await this.cacheManager.get(cacheKey);
+        const cachedStock: number | undefined = await this.cacheManager.get(cacheKey);
 
         if (cachedStock !== undefined && cachedStock !== null && cachedStock !== expectedRemaining) {
           this.logger.warn(
