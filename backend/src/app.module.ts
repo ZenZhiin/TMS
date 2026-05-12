@@ -13,6 +13,7 @@ import { TicketsModule } from './tickets/tickets.module';
 import { OrdersModule } from './orders/orders.module';
 import { SeatsModule } from './seats/seats.module';
 import { ReconciliationModule } from './reconciliation/reconciliation.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ReconciliationModule } from './reconciliation/reconciliation.module';
     OrdersModule,
     SeatsModule,
     ReconciliationModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [

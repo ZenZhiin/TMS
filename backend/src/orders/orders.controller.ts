@@ -15,11 +15,12 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/order.dto';
 import { WaitingRoomGuard } from '../common/guards/waiting-room.guard';
 import { AntiBotGuard } from '../common/guards/anti-bot.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { IdempotencyInterceptor } from '../common/interceptors/idempotency.interceptor';
 
 @ApiTags('orders')
 @Controller('orders')
-@UseGuards(WaitingRoomGuard, AntiBotGuard)
+@UseGuards(JwtAuthGuard, WaitingRoomGuard, AntiBotGuard)
 @UseInterceptors(IdempotencyInterceptor)
 export class OrdersController {
   constructor(
