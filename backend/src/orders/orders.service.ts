@@ -48,8 +48,6 @@ export class OrdersService {
 
       if (diff > 0) {
         if (diff <= 2000) {
-          // If within 2 seconds, "hold" the request until the sale starts
-          // This handles minor clock skew and provides better UX
           await new Promise((resolve) => setTimeout(resolve, diff));
         } else {
           throw new ForbiddenException(
@@ -64,58 +62,40 @@ export class OrdersService {
         );
       }
 
-      // 2. Handle Seat Reservations if provided
-      if (seatIds && seatIds.length > 0) {
-        if (seatIds.length !== quantity) {
-          throw new BadRequestException(
-            `Seat selection count (${seatIds.length}) must match order quantity (${quantity})`,
-          );
-        }
-
+      // --- PHASE 3: SEAT ALLOCATION & SOCIAL DISTANCING (Anti-Orphan) ---
+      let finalizedSeatIds = seatIds || [];
+      if (finalizedSeatIds.length === 0) {
+        finalizedSeatIds = await this.autoAllocateSeats(tx, ticket.event.venueId, quantity);
+      } else {
+        // Validate user-selected seats
         const seats = await tx.seat.findMany({
           where: {
-            id: { in: seatIds },
+            id: { in: finalizedSeatIds },
             venueId: ticket.event.venueId,
-            status: 'AVAILABLE', // Ensure we only find available seats
+            status: 'AVAILABLE',
           },
         });
 
-        if (seats.length !== seatIds.length) {
+        if (seats.length !== quantity) {
           throw new BadRequestException('One or more selected seats are unavailable or do not exist');
         }
-
-        // Mark seats as sold
-        await tx.seat.updateMany({
-          where: { id: { in: seatIds } },
-          data: { status: 'SOLD' },
-        });
       }
 
-      // 3. ATOMIC UPDATE: Decrease quantity only if still sufficient
-      // This is critical for ACID compliance in high-concurrency environments
-      let updatedTicket;
-      try {
-        updatedTicket = await tx.ticket.update({
-          where: {
-            id: ticketId,
-            remainingQuantity: { gte: quantity }, // Atomic check at the DB level
+      // 2. ATOMIC UPDATE: Decrease quantity
+      await tx.ticket.update({
+        where: {
+          id: ticketId,
+          remainingQuantity: { gte: quantity },
+        },
+        data: {
+          remainingQuantity: {
+            decrement: quantity,
           },
-          data: {
-            remainingQuantity: {
-              decrement: quantity,
-            },
-          },
-        });
-      } catch (error) {
-        // If the 'where' condition fails (remainingQuantity < quantity), Prisma throws an error
-        throw new BadRequestException(
-          'Tickets were sold out by another user. Please try again.',
-        );
-      }
+        },
+      });
 
-      // 4. Create the order
+      // 3. Create Order
       const totalPrice = Number(ticket.price) * quantity;
-
       const order = await tx.order.create({
         data: {
           ticketId,
@@ -124,11 +104,20 @@ export class OrdersService {
           totalPrice,
           status: 'PENDING',
           expiresAt,
-          seats: seatIds ? {
-            connect: seatIds.map(id => ({ id }))
-          } : undefined,
+          seats: {
+            connect: finalizedSeatIds.map((id) => ({ id })),
+          },
         },
         include: { seats: true },
+      });
+
+      // 4. Mark Seats as RESERVED (pending payment)
+      await tx.seat.updateMany({
+        where: { id: { in: finalizedSeatIds } },
+        data: { 
+          status: 'RESERVED',
+          orderId: order.id
+        },
       });
 
       return order;
@@ -149,6 +138,68 @@ export class OrdersService {
     }
 
     return orderResult;
+  }
+
+  private async autoAllocateSeats(tx: any, venueId: string, quantity: number): Promise<string[]> {
+    const availableSeats = await tx.seat.findMany({
+      where: { venueId, status: 'AVAILABLE' },
+      orderBy: [{ row: 'asc' }, { number: 'asc' }],
+    });
+
+    if (availableSeats.length < quantity) {
+      throw new BadRequestException('Not enough seats available in the venue.');
+    }
+
+    // Group seats by row
+    const seatsByRow: Record<string, any[]> = {};
+    for (const seat of availableSeats) {
+      if (!seatsByRow[seat.row]) seatsByRow[seat.row] = [];
+      seatsByRow[seat.row].push(seat);
+    }
+
+    for (const row in seatsByRow) {
+      const rowSeats = seatsByRow[row];
+      if (rowSeats.length < quantity) continue;
+
+      // Find contiguous block
+      for (let i = 0; i <= rowSeats.length - quantity; i++) {
+        const candidateBlock = rowSeats.slice(i, i + quantity);
+        let isContiguous = true;
+        
+        for (let j = 0; j < quantity - 1; j++) {
+          const currentNum = parseInt(candidateBlock[j].number);
+          const nextNum = parseInt(candidateBlock[j + 1].number);
+          if (nextNum !== currentNum + 1) {
+            isContiguous = false;
+            break;
+          }
+        }
+
+        if (isContiguous) {
+          // --- ANTI-ORPHAN CHECK (Feature 6) ---
+          // Ensure we don't leave exactly ONE seat empty on either side
+          const leftNeighborIdx = i - 1;
+          const rightNeighborIdx = i + quantity;
+
+          // Check Left Orphan
+          if (leftNeighborIdx === 0) {
+            // If we are taking seats starting from index 1, index 0 is left alone.
+            continue; 
+          }
+
+          // Check Right Orphan
+          if (rightNeighborIdx === rowSeats.length - 1) {
+             // If we leave exactly one seat at the end of the row
+             continue;
+          }
+
+          return candidateBlock.map((s) => s.id);
+        }
+      }
+    }
+
+    // Fallback: If no contiguous block found, just take any available seats (Fragmented)
+    return availableSeats.slice(0, quantity).map((s) => s.id);
   }
 
   async findAll() {
