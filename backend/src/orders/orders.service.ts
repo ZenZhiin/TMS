@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/order.dto';
 
@@ -9,12 +11,25 @@ export class OrdersService {
   constructor(
     private prisma: PrismaService,
     @InjectQueue('expiration') private expirationQueue: Queue,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) { }
 
   async create(createOrderDto: CreateOrderDto) {
     const { ticketId, quantity, customerEmail, seatIds } = createOrderDto;
     const EXPIRATION_WINDOW = 10 * 60 * 1000; // 10 minutes
     const expiresAt = new Date(Date.now() + EXPIRATION_WINDOW);
+
+    // --- PHASE 1: REDIS INVENTORY CHECK (Hot-Key Protection) ---
+    const cacheKey = `inventory:ticket:${ticketId}`;
+    const cachedStock: number = await this.cacheManager.get(cacheKey);
+
+    if (cachedStock !== undefined && cachedStock !== null) {
+      if (cachedStock < quantity) {
+        throw new BadRequestException('Tickets are sold out (Cached).');
+      }
+      // Optimistically decrement in cache
+      await this.cacheManager.set(cacheKey, cachedStock - quantity, 0);
+    }
 
     const orderResult = await this.prisma.$transaction(async (tx) => {
       // 1. Pre-check: Get ticket and check availability

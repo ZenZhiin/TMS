@@ -1,18 +1,28 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTicketDto, UpdateTicketDto } from './dto/ticket.dto';
 
 @Injectable()
 export class TicketsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {}
 
   async create(createTicketDto: CreateTicketDto) {
-    return this.prisma.ticket.create({
+    const ticket = await this.prisma.ticket.create({
       data: {
         ...createTicketDto,
         remainingQuantity: createTicketDto.initialQuantity,
       },
     });
+
+    // Sync to Redis for high-performance counter
+    await this.cacheManager.set(`inventory:ticket:${ticket.id}`, ticket.remainingQuantity, 0);
+
+    return ticket;
   }
 
   async findAll() {

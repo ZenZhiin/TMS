@@ -1,5 +1,8 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
+import { Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { Logger } from '@nestjs/common';
 
@@ -7,7 +10,10 @@ import { Logger } from '@nestjs/common';
 export class ExpirationProcessor extends WorkerHost {
   private readonly logger = new Logger(ExpirationProcessor.name);
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {
     super();
   }
 
@@ -53,6 +59,13 @@ export class ExpirationProcessor extends WorkerHost {
             orderId: null 
           },
         });
+      }
+
+      // 4. Restore Redis Inventory Counter
+      const cacheKey = `inventory:ticket:${order.ticketId}`;
+      const cachedStock: number = await this.cacheManager.get(cacheKey);
+      if (cachedStock !== undefined && cachedStock !== null) {
+        await this.cacheManager.set(cacheKey, cachedStock + order.quantity, 0);
       }
     });
   }
