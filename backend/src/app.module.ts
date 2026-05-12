@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { BullModule } from '@nestjs/bullmq';
 import { APP_GUARD } from '@nestjs/core';
@@ -11,6 +12,7 @@ import { EventsModule } from './events/events.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { OrdersModule } from './orders/orders.module';
 import { SeatsModule } from './seats/seats.module';
+import { ReconciliationModule } from './reconciliation/reconciliation.module';
 
 @Module({
   imports: [
@@ -18,6 +20,7 @@ import { SeatsModule } from './seats/seats.module';
       ttl: 3600000, // 1 hour in ms
       isGlobal: true,
     }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{
       ttl: 60000, // 1 minute
       limit: 100, // max 100 requests per minute
@@ -34,6 +37,7 @@ import { SeatsModule } from './seats/seats.module';
     TicketsModule,
     OrdersModule,
     SeatsModule,
+    ReconciliationModule,
   ],
   controllers: [AppController],
   providers: [
