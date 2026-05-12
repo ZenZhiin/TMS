@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Inject } from '@nes
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import type { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/order.dto';
 
@@ -14,7 +14,7 @@ export class OrdersService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) { }
 
-  async create(createOrderDto: CreateOrderDto) {
+  async create(createOrderDto: CreateOrderDto, ip?: string) {
     const { ticketId, quantity, customerEmail, seatIds } = createOrderDto;
     const EXPIRATION_WINDOW = 10 * 60 * 1000; // 10 minutes
     const expiresAt = new Date(Date.now() + EXPIRATION_WINDOW);
@@ -80,7 +80,7 @@ export class OrdersService {
       let updatedTicket;
       try {
         updatedTicket = await tx.ticket.update({
-          where: { 
+          where: {
             id: ticketId,
             remainingQuantity: { gte: quantity }, // Atomic check at the DB level
           },
@@ -124,6 +124,13 @@ export class OrdersService {
       { orderId: orderResult.id },
       { delay: 10 * 60 * 1000 },
     );
+
+    // 6. Update Scalper Protection Counter
+    if (ip) {
+      const scalperKey = `scalper_check:${ip}:${ticketId}`;
+      const currentCount: number = (await this.cacheManager.get(scalperKey)) || 0;
+      await this.cacheManager.set(scalperKey, currentCount + quantity, 3600 * 1000); // 1 hour window
+    }
 
     return orderResult;
   }

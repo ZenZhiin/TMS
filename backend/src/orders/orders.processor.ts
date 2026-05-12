@@ -12,10 +12,11 @@ export class OrdersProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<CreateOrderDto, any, string>): Promise<any> {
+  async process(job: Job<CreateOrderDto & { ip?: string }, any, string>): Promise<any> {
     this.logger.log(`Processing purchase job ${job.id} for ${job.data.customerEmail}`);
     try {
-      const result = await this.ordersService.create(job.data);
+      const { ip, ...dto } = job.data;
+      const result = await this.ordersService.create(dto, ip);
       this.logger.log(`Purchase job ${job.id} completed successfully`);
       return result;
     } catch (error) {

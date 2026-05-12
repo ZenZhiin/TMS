@@ -19,4 +19,8 @@ export class CreateOrderDto {
   @IsOptional()
   @IsUUID(undefined, { each: true })
   seatIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  botToken?: string; // HoneyPot field
 }

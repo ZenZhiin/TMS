@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import type { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { Logger } from '@nestjs/common';
 
@@ -54,9 +54,9 @@ export class ExpirationProcessor extends WorkerHost {
       if (order.seats.length > 0) {
         await tx.seat.updateMany({
           where: { orderId },
-          data: { 
+          data: {
             status: 'AVAILABLE',
-            orderId: null 
+            orderId: null
           },
         });
       }

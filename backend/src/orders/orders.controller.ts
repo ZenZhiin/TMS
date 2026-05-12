@@ -6,6 +6,7 @@ import {
   Param,
   UseGuards,
   UseInterceptors,
+  Ip,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -13,11 +14,12 @@ import { Queue } from 'bullmq';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/order.dto';
 import { WaitingRoomGuard } from '../common/guards/waiting-room.guard';
+import { AntiBotGuard } from '../common/guards/anti-bot.guard';
 import { IdempotencyInterceptor } from '../common/interceptors/idempotency.interceptor';
 
 @ApiTags('orders')
 @Controller('orders')
-@UseGuards(WaitingRoomGuard)
+@UseGuards(WaitingRoomGuard, AntiBotGuard)
 @UseInterceptors(IdempotencyInterceptor)
 export class OrdersController {
   constructor(
@@ -28,15 +30,15 @@ export class OrdersController {
   @Post()
   @ApiOperation({ summary: 'Purchase tickets (Synchronous - for normal load)' })
   @ApiResponse({ status: 201, description: 'The order has been successfully created.' })
-  create(@Body() createOrderDto: CreateOrderDto) {
-    return this.ordersService.create(createOrderDto);
+  create(@Body() createOrderDto: CreateOrderDto, @Ip() ip: string) {
+    return this.ordersService.create(createOrderDto, ip);
   }
 
   @Post('async-purchase')
   @ApiOperation({ summary: 'Purchase tickets (Asynchronous - for high load)' })
   @ApiResponse({ status: 202, description: 'The order has been queued for processing.' })
-  async createAsync(@Body() createOrderDto: CreateOrderDto) {
-    const job = await this.purchaseQueue.add('purchase-job', createOrderDto, {
+  async createAsync(@Body() createOrderDto: CreateOrderDto, @Ip() ip: string) {
+    const job = await this.purchaseQueue.add('purchase-job', { ...createOrderDto, ip }, {
       attempts: 3,
       backoff: {
         type: 'exponential',

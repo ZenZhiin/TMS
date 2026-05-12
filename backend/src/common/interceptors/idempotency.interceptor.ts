@@ -7,17 +7,17 @@ import {
   Inject,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import type { Cache } from 'cache-manager';
 import { Observable, of } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
 @Injectable()
 export class IdempotencyInterceptor implements NestInterceptor {
-  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) { }
 
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
     const request = context.switchToHttp().getRequest();
-    
+
     // Only apply to POST requests (mutations)
     if (request.method !== 'POST') {
       return next.handle();
@@ -29,7 +29,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     }
 
     const cacheKey = `idempotency:${idempotencyKey}`;
-    
+
     // 1. Check if we have a cached response for this key
     const cachedResponse = await this.cacheManager.get(cacheKey);
     if (cachedResponse) {

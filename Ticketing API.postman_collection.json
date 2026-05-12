@@ -1,7 +1,7 @@
 {
 	"info": {
 		"_postman_id": "5a6b505e-e5a2-4416-805a-d520180815e2",
-		"name": "AirAsia Ticketing API",
+		"name": "Ticketing API",
 		"description": "Collection for the Ticketing System Backend assignment.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
