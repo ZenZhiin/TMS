@@ -1,4 +1,4 @@
-# ✈️ AirAsia High-Concurrency Ticketing System
+# High-Concurrency Ticketing System
 
 [![NestJS](https://img.shields.io/badge/nestjs-%23E0234E.svg?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
 [![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)](https://www.prisma.io/)
@@ -36,7 +36,7 @@ The architecture follows a **Queue-First, Cache-Optimized** approach:
 ## 📁 Project Structure
 
 ```text
-AirAsia/
+TMS/
 ├── backend/                # NestJS Application Source
 │   ├── src/
 │   │   ├── auth/           # JWT & Security Logic
@@ -74,4 +74,4 @@ Import the **`Ticketing API.postman_collection.json`** from the root directory i
 
 ---
 **Lead Architect:** ZenZhiin Master Agent  
-**Stakeholder:** AirAsia Digital
+**Stakeholder:** Kenny Soon
