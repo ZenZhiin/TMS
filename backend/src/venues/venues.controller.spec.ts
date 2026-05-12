@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { VenuesController } from './venues.controller';
 import { VenuesService } from './venues.service';
 
@@ -10,6 +11,11 @@ const mockVenuesService = {
   remove: jest.fn(),
 };
 
+const mockCache = {
+  get: jest.fn(),
+  set: jest.fn(),
+};
+
 describe('VenuesController', () => {
   let controller: VenuesController;
 
@@ -18,6 +24,7 @@ describe('VenuesController', () => {
       controllers: [VenuesController],
       providers: [
         { provide: VenuesService, useValue: mockVenuesService },
+        { provide: CACHE_MANAGER, useValue: mockCache },
       ],
     }).compile();
 

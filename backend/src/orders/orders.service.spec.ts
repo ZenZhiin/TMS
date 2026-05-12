@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { getQueueToken } from '@nestjs/bullmq';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { OrdersService } from './orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BadRequestException } from '@nestjs/common';
@@ -20,6 +22,15 @@ const mockPrisma = {
   },
 };
 
+const mockQueue = {
+  add: jest.fn(),
+};
+
+const mockCache = {
+  get: jest.fn(),
+  set: jest.fn(),
+};
+
 describe('OrdersService', () => {
   let service: OrdersService;
 
@@ -28,6 +39,8 @@ describe('OrdersService', () => {
       providers: [
         OrdersService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: getQueueToken('expiration'), useValue: mockQueue },
+        { provide: CACHE_MANAGER, useValue: mockCache },
       ],
     }).compile();
 
@@ -46,7 +59,11 @@ describe('OrdersService', () => {
         return cb(mockPrisma);
       });
 
-      mockPrisma.ticket.findUnique.mockResolvedValue({ id: 't1', remainingQuantity: 5 });
+      mockPrisma.ticket.findUnique.mockResolvedValue({ 
+        id: 't1', 
+        remainingQuantity: 5,
+        event: { startTime: new Date() }
+      });
 
       await expect(service.create(dto)).rejects.toThrow(BadRequestException);
     });
@@ -58,7 +75,12 @@ describe('OrdersService', () => {
         return cb(mockPrisma);
       });
 
-      mockPrisma.ticket.findUnique.mockResolvedValue({ id: 't1', remainingQuantity: 10, price: 100 });
+      mockPrisma.ticket.findUnique.mockResolvedValue({ 
+        id: 't1', 
+        remainingQuantity: 10, 
+        price: 100,
+        event: { startTime: new Date() }
+      });
       mockPrisma.ticket.update.mockResolvedValue({ id: 't1', remainingQuantity: 8 });
       mockPrisma.order.create.mockResolvedValue({ id: 'o1', ...dto, totalPrice: 200 });
 
