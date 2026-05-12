@@ -15,4 +15,4 @@ import { ExpirationProcessor } from './expiration.processor';
   controllers: [OrdersController],
   providers: [OrdersService, OrdersProcessor, ExpirationProcessor],
 })
-export class OrdersModule {}
+export class OrdersModule { }

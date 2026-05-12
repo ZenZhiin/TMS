@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, ForbiddenException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -21,7 +21,7 @@ export class OrdersService {
 
     // --- PHASE 1: REDIS INVENTORY CHECK (Hot-Key Protection) ---
     const cacheKey = `inventory:ticket:${ticketId}`;
-    const cachedStock: number = await this.cacheManager.get(cacheKey);
+    const cachedStock: number | undefined = await this.cacheManager.get(cacheKey);
 
     if (cachedStock !== undefined && cachedStock !== null) {
       if (cachedStock < quantity) {
@@ -40,6 +40,22 @@ export class OrdersService {
 
       if (!ticket) {
         throw new NotFoundException(`Ticket with ID ${ticketId} not found`);
+      }
+
+      // --- PHASE 2: CLOCK SKEW & SALE START PROTECTION ---
+      const now = new Date();
+      const diff = ticket.event.startTime.getTime() - now.getTime();
+
+      if (diff > 0) {
+        if (diff <= 2000) {
+          // If within 2 seconds, "hold" the request until the sale starts
+          // This handles minor clock skew and provides better UX
+          await new Promise((resolve) => setTimeout(resolve, diff));
+        } else {
+          throw new ForbiddenException(
+            `Sale has not started yet. Starts at: ${ticket.event.startTime.toISOString()}`,
+          );
+        }
       }
 
       if (ticket.remainingQuantity < quantity) {

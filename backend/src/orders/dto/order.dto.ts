@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, Min, IsUUID, IsEmail, IsOptional } from 'class-validator';
+import { IsInt, Min, IsUUID, IsEmail, IsOptional, IsString } from 'class-validator';
 
 export class CreateOrderDto {
   @ApiProperty({ example: 'uuid-of-ticket' })
