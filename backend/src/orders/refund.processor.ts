@@ -39,7 +39,7 @@ export class RefundProcessor extends WorkerHost {
 
         // 2. We don't restore stock here because the event is CANCELLED.
         // But we could free up seats if needed.
-        await tx.seat.updateMany({
+        await tx.eventSeat.updateMany({
           where: { orderId },
           data: { status: 'AVAILABLE', orderId: null },
         });

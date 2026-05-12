@@ -12,13 +12,33 @@ export class EventsService {
   ) {}
 
   async create(createEventDto: CreateEventDto) {
-    return this.prisma.event.create({
-      data: {
-        name: createEventDto.name,
-        description: createEventDto.description,
-        startTime: new Date(createEventDto.startTime),
-        venueId: createEventDto.venueId,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Create the Event
+      const event = await tx.event.create({
+        data: {
+          name: createEventDto.name,
+          description: createEventDto.description,
+          startTime: new Date(createEventDto.startTime),
+          venueId: createEventDto.venueId,
+        },
+      });
+
+      // 2. Initialize EventSeats from Venue Seats
+      const venueSeats = await tx.seat.findMany({
+        where: { venueId: createEventDto.venueId },
+      });
+
+      if (venueSeats.length > 0) {
+        await tx.eventSeat.createMany({
+          data: venueSeats.map((s) => ({
+            eventId: event.id,
+            seatId: s.id,
+            status: 'AVAILABLE',
+          })),
+        });
+      }
+
+      return event;
     });
   }
 

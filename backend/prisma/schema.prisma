@@ -32,6 +32,7 @@ model Event {
   venueId     String   @map("venue_id")
   venue       Venue    @relation(fields: [venueId], references: [id])
   tickets     Ticket[]
+  eventSeats  EventSeat[]
   status      EventStatus @default(ACTIVE)
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -70,7 +71,7 @@ model Order {
   expiresAt     DateTime?   @map("expires_at")
   ticketId      String      @map("ticket_id")
   ticket        Ticket      @relation(fields: [ticketId], references: [id])
-  seats         Seat[]
+  eventSeats    EventSeat[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -79,19 +80,34 @@ model Order {
 }
 
 model Seat {
+  id         String      @id @default(uuid())
+  row        String
+  number     String
+  venueId    String      @map("venue_id")
+  venue      Venue       @relation(fields: [venueId], references: [id])
+  eventSeats EventSeat[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("seats")
+}
+
+model EventSeat {
   id      String     @id @default(uuid())
-  row     String
-  number  String
+  eventId String     @map("event_id")
+  event   Event      @relation(fields: [eventId], references: [id])
+  seatId  String     @map("seat_id")
+  seat    Seat       @relation(fields: [seatId], references: [id])
   status  SeatStatus @default(AVAILABLE)
-  venueId String     @map("venue_id")
-  venue   Venue      @relation(fields: [venueId], references: [id])
   orderId String?    @map("order_id")
   order   Order?     @relation(fields: [orderId], references: [id])
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("seats")
+  @@unique([eventId, seatId])
+  @@map("event_seats")
 }
 
 enum OrderStatus {

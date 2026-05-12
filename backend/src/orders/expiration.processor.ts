@@ -24,7 +24,7 @@ export class ExpirationProcessor extends WorkerHost {
     await this.prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
         where: { id: orderId },
-        include: { seats: true },
+        include: { eventSeats: true },
       });
 
       if (!order || order.status !== 'PENDING') {
@@ -50,9 +50,9 @@ export class ExpirationProcessor extends WorkerHost {
         },
       });
 
-      // 3. Free up Seats
-      if (order.seats.length > 0) {
-        await tx.seat.updateMany({
+      // 3. Free up EventSeats
+      if (order.eventSeats && order.eventSeats.length > 0) {
+        await tx.eventSeat.updateMany({
           where: { orderId },
           data: {
             status: 'AVAILABLE',

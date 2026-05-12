@@ -66,13 +66,13 @@ export class OrdersService {
       // --- PHASE 3: SEAT ALLOCATION & SOCIAL DISTANCING (Anti-Orphan) ---
       let finalizedSeatIds = seatIds || [];
       if (finalizedSeatIds.length === 0) {
-        finalizedSeatIds = await this.autoAllocateSeats(tx, ticket.event.venueId, quantity);
+        finalizedSeatIds = await this.autoAllocateSeats(tx, ticket.eventId, quantity);
       } else {
         // Validate user-selected seats
-        const seats = await tx.seat.findMany({
+        const seats = await tx.eventSeat.findMany({
           where: {
             id: { in: finalizedSeatIds },
-            venueId: ticket.event.venueId,
+            eventId: ticket.eventId,
             status: 'AVAILABLE',
           },
         });
@@ -105,15 +105,15 @@ export class OrdersService {
           totalPrice,
           status: 'PENDING',
           expiresAt,
-          seats: {
+          eventSeats: {
             connect: finalizedSeatIds.map((id) => ({ id })),
           },
         },
-        include: { seats: true },
+        include: { eventSeats: true },
       });
 
       // 4. Mark Seats as RESERVED (pending payment)
-      await tx.seat.updateMany({
+      await tx.eventSeat.updateMany({
         where: { id: { in: finalizedSeatIds } },
         data: {
           status: 'RESERVED',
@@ -141,21 +141,22 @@ export class OrdersService {
     return orderResult;
   }
 
-  private async autoAllocateSeats(tx: any, venueId: string, quantity: number): Promise<string[]> {
-    const availableSeats = await tx.seat.findMany({
-      where: { venueId, status: 'AVAILABLE' },
-      orderBy: [{ row: 'asc' }, { number: 'asc' }],
+  private async autoAllocateSeats(tx: any, eventId: string, quantity: number): Promise<string[]> {
+    const availableSeats = await tx.eventSeat.findMany({
+      where: { eventId, status: 'AVAILABLE' },
+      include: { seat: true },
+      orderBy: [{ seat: { row: 'asc' } }, { seat: { number: 'asc' } }],
     });
 
     if (availableSeats.length < quantity) {
-      throw new BadRequestException('Not enough seats available in the venue.');
+      throw new BadRequestException('Not enough seats available for this event.');
     }
 
     // Group seats by row
     const seatsByRow: Record<string, any[]> = {};
-    for (const seat of availableSeats) {
-      if (!seatsByRow[seat.row]) seatsByRow[seat.row] = [];
-      seatsByRow[seat.row].push(seat);
+    for (const eventSeat of availableSeats) {
+      if (!seatsByRow[eventSeat.seat.row]) seatsByRow[eventSeat.seat.row] = [];
+      seatsByRow[eventSeat.seat.row].push(eventSeat);
     }
 
     for (const row in seatsByRow) {
@@ -168,8 +169,8 @@ export class OrdersService {
         let isContiguous = true;
 
         for (let j = 0; j < quantity - 1; j++) {
-          const currentNum = parseInt(candidateBlock[j].number);
-          const nextNum = parseInt(candidateBlock[j + 1].number);
+          const currentNum = parseInt(candidateBlock[j].seat.number);
+          const nextNum = parseInt(candidateBlock[j + 1].seat.number);
           if (nextNum !== currentNum + 1) {
             isContiguous = false;
             break;
@@ -194,13 +195,13 @@ export class OrdersService {
             continue;
           }
 
-          return candidateBlock.map((s: Seat) => s.id);
+          return candidateBlock.map((s: any) => s.id);
         }
       }
     }
 
     // Fallback: If no contiguous block found, just take any available seats (Fragmented)
-    return availableSeats.slice(0, quantity).map((s: Seat) => s.id);
+    return availableSeats.slice(0, quantity).map((s: any) => s.id);
   }
 
   async findAll() {

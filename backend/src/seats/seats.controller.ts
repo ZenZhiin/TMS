@@ -29,10 +29,10 @@ export class SeatsController {
     return this.seatsService.findAll(venueId);
   }
 
-  @Get('available/:venueId')
-  @ApiOperation({ summary: 'Get all available seats for a venue' })
-  findAvailable(@Param('venueId') venueId: string) {
-    return this.seatsService.findAvailable(venueId);
+  @Get('event/:eventId')
+  @ApiOperation({ summary: 'Get all seats and their statuses for a specific event (UI Seat Map)' })
+  getEventSeats(@Param('eventId') eventId: string) {
+    return this.seatsService.getEventSeats(eventId);
   }
 
   @Get(':id')

@@ -16,7 +16,7 @@ const mockPrisma = {
     findMany: jest.fn(),
     findUnique: jest.fn(),
   },
-  seat: {
+  eventSeat: {
     findMany: jest.fn(),
     updateMany: jest.fn(),
   },
@@ -83,12 +83,12 @@ describe('OrdersService', () => {
       });
       mockPrisma.ticket.update.mockResolvedValue({ id: 't1', remainingQuantity: 8 });
       mockPrisma.order.create.mockResolvedValue({ id: 'o1', ...dto, totalPrice: 200 });
-      mockPrisma.seat.findMany.mockResolvedValue([
-        { id: 's1', row: 'A', number: '1', status: 'AVAILABLE' },
-        { id: 's2', row: 'A', number: '2', status: 'AVAILABLE' },
-        { id: 's3', row: 'A', number: '3', status: 'AVAILABLE' },
+      mockPrisma.eventSeat.findMany.mockResolvedValue([
+        { id: 'es1', status: 'AVAILABLE', seat: { row: 'A', number: '1' } },
+        { id: 'es2', status: 'AVAILABLE', seat: { row: 'A', number: '2' } },
+        { id: 'es3', status: 'AVAILABLE', seat: { row: 'A', number: '3' } },
       ]);
-      mockPrisma.seat.updateMany.mockResolvedValue({ count: 2 });
+      mockPrisma.eventSeat.updateMany.mockResolvedValue({ count: 2 });
 
       const result = await service.create(dto);
       expect(result.id).toEqual('o1');

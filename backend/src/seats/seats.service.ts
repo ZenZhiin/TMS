@@ -38,12 +38,17 @@ export class SeatsService {
     });
   }
 
-  async findAvailable(venueId: string) {
-    return this.prisma.seat.findMany({
-      where: {
-        venueId,
-        status: 'AVAILABLE',
+  async getEventSeats(eventId: string) {
+    return this.prisma.eventSeat.findMany({
+      where: { eventId },
+      include: {
+        seat: true, // Includes row and number
       },
+      orderBy: [
+        { seat: { row: 'asc' } },
+        { seat: { number: 'asc' } },
+      ],
     });
   }
 }
+
