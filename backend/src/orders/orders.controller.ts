@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -12,10 +13,12 @@ import { Queue } from 'bullmq';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/order.dto';
 import { WaitingRoomGuard } from '../common/guards/waiting-room.guard';
+import { IdempotencyInterceptor } from '../common/interceptors/idempotency.interceptor';
 
 @ApiTags('orders')
 @Controller('orders')
 @UseGuards(WaitingRoomGuard)
+@UseInterceptors(IdempotencyInterceptor)
 export class OrdersController {
   constructor(
     private readonly ordersService: OrdersService,
