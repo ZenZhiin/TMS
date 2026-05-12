@@ -4,15 +4,16 @@ import { CreateOrderDto } from './dto/order.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(createOrderDto: CreateOrderDto) {
-    const { ticketId, quantity, customerEmail } = createOrderDto;
+    const { ticketId, quantity, customerEmail, seatIds } = createOrderDto;
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Get ticket and check availability
       const ticket = await tx.ticket.findUnique({
         where: { id: ticketId },
+        include: { event: true },
       });
 
       if (!ticket) {
@@ -25,7 +26,37 @@ export class OrdersService {
         );
       }
 
-      // 2. Update ticket remaining quantity
+      // 2. Handle Seat Reservations if provided
+      if (seatIds && seatIds.length > 0) {
+        if (seatIds.length !== quantity) {
+          throw new BadRequestException(
+            `Seat selection count (${seatIds.length}) must match order quantity (${quantity})`,
+          );
+        }
+
+        const seats = await tx.seat.findMany({
+          where: {
+            id: { in: seatIds },
+            venueId: ticket.event.venueId,
+          },
+        });
+
+        if (seats.length !== seatIds.length) {
+          throw new BadRequestException('One or more selected seats do not exist in this venue');
+        }
+
+        if (seats.some((s) => s.status !== 'AVAILABLE')) {
+          throw new BadRequestException('One or more selected seats are not available');
+        }
+
+        // Mark seats as sold
+        await tx.seat.updateMany({
+          where: { id: { in: seatIds } },
+          data: { status: 'SOLD' },
+        });
+      }
+
+      // 3. Update ticket remaining quantity
       const updatedTicket = await tx.ticket.update({
         where: { id: ticketId },
         data: {
@@ -35,17 +66,21 @@ export class OrdersService {
         },
       });
 
-      // 3. Create the order
+      // 4. Create the order
       const totalPrice = Number(ticket.price) * quantity;
-      
+
       const order = await tx.order.create({
         data: {
           ticketId,
           quantity,
           customerEmail,
           totalPrice,
-          status: 'COMPLETED', // Auto-complete for now in this simplified flow
+          status: 'COMPLETED',
+          seats: seatIds ? {
+            connect: seatIds.map(id => ({ id }))
+          } : undefined,
         },
+        include: { seats: true },
       });
 
       return {
