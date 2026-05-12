@@ -61,6 +61,7 @@ model Order {
   totalPrice    Decimal     @map("total_price") @db.Decimal(10, 2)
   customerEmail String      @map("customer_email")
   status        OrderStatus @default(PENDING)
+  expiresAt     DateTime?   @map("expires_at")
   ticketId      String      @map("ticket_id")
   ticket        Ticket      @relation(fields: [ticketId], references: [id])
   seats         Seat[]

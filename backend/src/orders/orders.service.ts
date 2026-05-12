@@ -1,15 +1,22 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/order.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    @InjectQueue('expiration') private expirationQueue: Queue,
+  ) { }
 
   async create(createOrderDto: CreateOrderDto) {
     const { ticketId, quantity, customerEmail, seatIds } = createOrderDto;
+    const EXPIRATION_WINDOW = 10 * 60 * 1000; // 10 minutes
+    const expiresAt = new Date(Date.now() + EXPIRATION_WINDOW);
 
-    return this.prisma.$transaction(async (tx) => {
+    const orderResult = await this.prisma.$transaction(async (tx) => {
       // 1. Pre-check: Get ticket and check availability
       const ticket = await tx.ticket.findUnique({
         where: { id: ticketId },
@@ -84,7 +91,8 @@ export class OrdersService {
           quantity,
           customerEmail,
           totalPrice,
-          status: 'COMPLETED',
+          status: 'PENDING',
+          expiresAt,
           seats: seatIds ? {
             connect: seatIds.map(id => ({ id }))
           } : undefined,
@@ -92,11 +100,17 @@ export class OrdersService {
         include: { seats: true },
       });
 
-      return {
-        ...order,
-        ticket: updatedTicket,
-      };
+      return order;
     });
+
+    // 5. Schedule Expiration Job (out of transaction)
+    await this.expirationQueue.add(
+      'expire-order',
+      { orderId: orderResult.id },
+      { delay: 10 * 60 * 1000 },
+    );
+
+    return orderResult;
   }
 
   async findAll() {
