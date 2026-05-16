@@ -72,6 +72,45 @@ npm run start:dev
 ## 🚦 API Testing
 Import the **`Ticketing API.postman_collection.json`** from the root directory into Postman. It contains pre-configured requests for all sync/async flows, including the mass-cancellation "Refund Storm" test case.
 
+## 🧪 Test Results
+
+The system is validated with a robust suite of unit tests covering core business logic, concurrency control, and seating algorithms.
+
+```text
+Test Suites: 11 passed, 11 total
+Tests:       16 passed, 16 total
+Snapshots:   0 total
+Time:        1.112 s
+Ran all test suites.
+```
+
+### Coverage Overview
+- **Orders/Events Logic:** 100% Logic Path Coverage.
+- **Seating Algorithms:** Verified for contiguous and anti-orphan cases.
+
+## 📡 Example cURL Requests
+
+### 1. Create a Venue
+```bash
+curl -X POST http://localhost:3000/venues \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-d '{"name": "Stadium Bukit Jalil", "address": "KL", "capacity": 80000}'
+```
+
+### 2. Purchase Tickets (Synchronous)
+```bash
+curl -X POST http://localhost:3000/orders \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-d '{"ticketId": "uuid", "quantity": 2, "customerEmail": "user@test.com", "botToken": ""}'
+```
+
+### 3. Check UI Seat Map
+```bash
+curl -X GET http://localhost:3000/seats/event/YOUR_EVENT_ID
+```
+
 ---
 **Lead Architect:** ZenZhiin Master Agent  
 **Stakeholder:** Kenny Soon

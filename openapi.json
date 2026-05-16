@@ -1,0 +1,84 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AirAsia Ticketing System API",
+    "description": "High-concurrency, fault-tolerant ticketing system with reserved seating and anti-bot protection.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Development"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/venues": {
+      "get": {
+        "tags": ["Venues"],
+        "summary": "Get all venues",
+        "responses": { "200": { "description": "List of venues" } }
+      },
+      "post": {
+        "tags": ["Venues"],
+        "summary": "Create a new venue",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "description": "Venue created" } }
+      }
+    },
+    "/events": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get all events",
+        "responses": { "200": { "description": "List of events" } }
+      },
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create a new event",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "description": "Event created" } }
+      }
+    },
+    "/events/{id}/cancel": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "Cancel an event and trigger mass refunds (Refund Storm)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Event cancelled and refunds queued" } }
+      }
+    },
+    "/orders": {
+      "post": {
+        "tags": ["Orders"],
+        "summary": "Purchase tickets (Synchronous)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "description": "Order created" } }
+      }
+    },
+    "/orders/async-purchase": {
+      "post": {
+        "tags": ["Orders"],
+        "summary": "Purchase tickets (Asynchronous - High Load)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "202": { "description": "Order processing started" } }
+      }
+    },
+    "/seats/event/{eventId}": {
+      "get": {
+        "tags": ["Seats"],
+        "summary": "Get all seat statuses for a specific event (UI Seat Map)",
+        "parameters": [{ "name": "eventId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Seat map with availability" } }
+      }
+    }
+  }
+}
