@@ -1,0 +1,70 @@
+variables:
+  GCP_PROJECT_ID: $GCP_PROJECT_ID
+  GKE_CLUSTER: ticketing-cluster
+  GKE_ZONE: asia-southeast1-a
+  GAR_LOCATION: asia-southeast1-docker.pkg.dev
+  IMAGE_NAME: $GAR_LOCATION/$GCP_PROJECT_ID/ticketing-repo/ticketing-backend:$CI_COMMIT_SHA
+
+stages:
+  - test
+  - build
+  - deploy_dev
+  - deploy_staging
+  - deploy_prod
+
+unit_test:
+  stage: test
+  image: node:22
+  script:
+    - cd backend
+    - npm ci
+    - npm run test
+
+docker_build:
+  stage: build
+  image: google/cloud-sdk:latest
+  services:
+    - docker:dind
+  script:
+    - echo $GCP_SERVICE_KEY > gcp-key.json
+    - gcloud auth activate-service-account --key-file gcp-key.json
+    - gcloud auth configure-docker $GAR_LOCATION
+    - docker build -t $IMAGE_NAME ./backend
+    - docker push $IMAGE_NAME
+  only:
+    - main
+    - develop
+
+deploy_dev:
+  stage: deploy_dev
+  image: google/cloud-sdk:latest
+  script:
+    - echo $GCP_SERVICE_KEY > gcp-key.json
+    - gcloud auth activate-service-account --key-file gcp-key.json
+    - gcloud container clusters get-credentials $GKE_CLUSTER --zone $GKE_ZONE --project $GCP_PROJECT_ID
+    - kubectl set image deployment/ticketing-backend ticketing-backend=$IMAGE_NAME -n dev
+  only:
+    - develop
+
+deploy_staging:
+  stage: deploy_staging
+  image: google/cloud-sdk:latest
+  script:
+    - echo $GCP_SERVICE_KEY > gcp-key.json
+    - gcloud auth activate-service-account --key-file gcp-key.json
+    - gcloud container clusters get-credentials $GKE_CLUSTER --zone $GKE_ZONE --project $GCP_PROJECT_ID
+    - kubectl set image deployment/ticketing-backend ticketing-backend=$IMAGE_NAME -n staging
+  only:
+    - main
+
+deploy_prod:
+  stage: deploy_prod
+  image: google/cloud-sdk:latest
+  script:
+    - echo $GCP_SERVICE_KEY > gcp-key.json
+    - gcloud auth activate-service-account --key-file gcp-key.json
+    - gcloud container clusters get-credentials $GKE_CLUSTER --zone $GKE_ZONE --project $GCP_PROJECT_ID
+    - kubectl set image deployment/ticketing-backend ticketing-backend=$IMAGE_NAME -n prod
+  when: manual # Manual approval gate for production
+  only:
+    - main

@@ -1,14 +1,31 @@
-# Google Cloud Platform (GCP) Deployment Guide
+# Google Cloud Platform (GCP) Deployment Guide (GKE Edition)
 
-This guide outlines the steps to deploy the AirAsia Ticketing System Backend to Google Cloud, utilizing **Cloud Run** for compute, **Cloud SQL** for the PostgreSQL database, and **MemoryStore** for Redis.
+This guide outlines the steps to deploy the AirAsia Ticketing System Backend to **Google Kubernetes Engine (GKE)**, providing a robust, multi-environment (Dev, Staging, Prod) infrastructure.
 
-## 🏗 GCP Architecture
+## 🏗 GKE Architecture
 
-*   **Compute:** Google Cloud Run (Serverless, auto-scaling containers)
-*   **Database:** Google Cloud SQL (Managed PostgreSQL)
-*   **Cache/Queue:** Google Cloud MemoryStore (Managed Redis)
-*   **Image Storage:** Google Artifact Registry
-*   **Networking:** Serverless VPC Access Connector (Allows Cloud Run to communicate with Cloud SQL and MemoryStore privately)
+*   **Orchestration:** Google Kubernetes Engine (Standard Cluster)
+*   **Namespaces:** `dev`, `staging`, `prod`
+*   **Database:** Google Cloud SQL (PostgreSQL)
+*   **Cache/Queue:** Google Cloud MemoryStore (Redis)
+*   **Networking:** GKE Ingress (Managed Load Balancer) + Cloud DNS
+
+---
+
+## 🛠 Step 1: Provision GKE Cluster
+
+```bash
+# Create a GKE cluster (Standard)
+gcloud container clusters create ticketing-cluster \
+    --region=asia-southeast1 \
+    --num-nodes=3 \
+    --machine-type=e2-standard-2
+
+# Create Namespaces
+kubectl create namespace dev
+kubectl create namespace staging
+kubectl create namespace prod
+```
 
 ---
 
@@ -99,20 +116,48 @@ gcloud builds submit --tag $IMAGE_URL .
 
 ---
 
-## 🚀 Step 4: Database Migrations
+## 🚀 Step 4: Deploying to GKE
+Create a `deployment.yaml` for your application:
 
-Before deploying the main app, you need to run Prisma migrations. The safest way in a serverless environment is to run a one-off Cloud Run job.
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticketing-backend
+  namespace: staging # Change to dev/prod as needed
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ticketing-backend
+  template:
+    metadata:
+      labels:
+        app: ticketing-backend
+    spec:
+      containers:
+      - name: ticketing-backend
+        image: asia-southeast1-docker.pkg.dev/[PROJECT_ID]/ticketing-repo/ticketing-backend:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: url
+        - name: REDIS_HOST
+          value: "[MEMORYSTORE_IP]"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: auth-secrets
+              key: jwt-secret
+```
 
+Apply the deployment:
 ```bash
-gcloud run jobs create migrate-db \
-    --image $IMAGE_URL \
-    --region asia-southeast1 \
-    --vpc-connector ticketing-vpc-connector \
-    --set-env-vars DATABASE_URL="postgresql://postgres:[PASSWORD]@[CLOUD_SQL_PRIVATE_IP]:5432/ticketing_db" \
-    --command="npm,run,db:migrate"
-
-# Execute the job
-gcloud run jobs execute migrate-db --wait
+kubectl apply -f deployment.yaml
 ```
 
 ---
